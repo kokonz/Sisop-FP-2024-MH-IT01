@@ -5,28 +5,28 @@
 #include <arpa/inet.h>
 #include <pthread.h>
 #include <time.h>
+#include <stdbool.h>
 
 #define BUFFER_SIZE 1024
 #define PORT 8080
 
 int sockfd;
 char username[50];
-char password[50];
-char channel[50];
-char room[50];
-int in_room = 0;
+char channel[50] = "";
+char room[50] = "";
+bool in_room = false;
+bool running = true;
 
 void get_timestamp(char *buffer, size_t buffer_size) {
     time_t now = time(NULL);
     struct tm *t = localtime(&now);
-    strftime(buffer, buffer_size, "[%Y-%m-%d %H:%M:%S]", t);
+    strftime(buffer, buffer_size, "[%d/%m/%Y %H:%M:%S]", t);
 }
 
-// menerima pesan dari server
 void* receive_messages(void* arg) {
     char buffer[BUFFER_SIZE];
-    
-    while (1) {
+
+    while (running) {
         int bytes_received = recv(sockfd, buffer, BUFFER_SIZE, 0);
         if (bytes_received <= 0) {
             printf("Koneksi terputus.\n");
@@ -34,14 +34,18 @@ void* receive_messages(void* arg) {
             exit(EXIT_FAILURE);
         }
         buffer[bytes_received] = '\0';
-        printf("%s\n", buffer);
+
+        // Hanya mencetak pesan jika bukan perintah
+        if (strncmp(buffer, "Invalid command", 15) != 0) {
+            printf("%s\n", buffer);
+        }
     }
+    return NULL;
 }
 
-// mengirim login informasi dan menangani respon dari server
 int handle_account() {
     char login_info[BUFFER_SIZE];
-    snprintf(login_info, sizeof(login_info), "LOGIN %s -p %s\n", username, password);
+    snprintf(login_info, sizeof(login_info), "LOGIN %s -p %s\n", username, channel);
     send(sockfd, login_info, strlen(login_info), 0);
 
     char response[BUFFER_SIZE];
@@ -52,7 +56,7 @@ int handle_account() {
     }
     response[bytes_received] = '\0';
     printf("%s\n", response);
-    
+
     if (strstr(response, "berhasil login")) {
         return 1;
     } else {
@@ -81,42 +85,55 @@ int connect_server() {
     return 1;
 }
 
-// clear terminal
 void clear_terminal() {
     printf("\033[H\033[J");
 }
 
-// handle input dari pengguna
+void display_chat_history(const char *filepath) {
+    FILE *file = fopen(filepath, "r");
+    if (!file) {
+        perror("Gagal membuka file chat");
+        return;
+    }
+
+    char line[BUFFER_SIZE];
+    while (fgets(line, sizeof(line), file)) {
+        printf("%s", line);
+    }
+
+    fclose(file);
+}
+
 void* input_handler(void* arg) {
     char input[BUFFER_SIZE];
 
-    while (1) {
+    while (running) {
         fgets(input, BUFFER_SIZE, stdin);
         input[strcspn(input, "\n")] = 0;
 
         if (strncmp(input, "EXIT", 4) == 0) {
+            in_room = false;
+            room[0] = '\0';
+            channel[0] = '\0';
+            printf("[%s] EXIT\n", username);
             send(sockfd, "EXIT\n", 5, 0);
-            close(sockfd);
-            pthread_exit(NULL);
-        } else if (strncmp(input, "JOIN ", 5) == 0) {
-            char* token = strtok(input + 5, " ");
-            if (token != NULL) {
-                strcpy(channel, token);
-                token = strtok(NULL, " ");
-                if (token != NULL) {
-                    strcpy(room, token);
-                    in_room = 1;
-                } else {
-                    in_room = 0;
-                }
-            }
-        }
+            running = false;
+        } else if (strncmp(input, "-channel ", 9) == 0) {
+            sscanf(input, "-channel %s -room %s", channel, room);
+            in_room = true;
 
-        send(sockfd, input, strlen(input), 0);
+            char filepath[BUFFER_SIZE];
+            snprintf(filepath, sizeof(filepath), "/home/kokon/FP/DiscorIT/%s/%s/chat.csv", channel, room);
+            display_chat_history(filepath);
+            printf("[%s/%s/%s] ", username, channel, room);
+            fflush(stdout);
+        } else {
+            send(sockfd, input, strlen(input), 0);
+        }
     }
+    return NULL;
 }
 
-// run monitor
 int main(int argc, char *argv[]) {
     if (argc != 5 || strcmp(argv[1], "LOGIN") != 0 || strcmp(argv[3], "-p") != 0) {
         fprintf(stderr, "Usage: %s LOGIN <username> -p <password>\n", argv[0]);
@@ -124,7 +141,7 @@ int main(int argc, char *argv[]) {
     }
 
     strcpy(username, argv[2]);
-    strcpy(password, argv[4]);
+    strcpy(channel, argv[4]);
 
     if (!connect_server()) {
         fprintf(stderr, "Gagal terhubung ke server.\n");
