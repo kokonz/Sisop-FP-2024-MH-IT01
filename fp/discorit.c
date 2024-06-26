@@ -6,7 +6,7 @@
 
 #define PORT 8080
 #define BUF_SIZE 1024
-#define PROMPT_SIZE 4096  
+#define PROMPT_SIZE 4096  // Increase the size of the prompt buffer
 
 void send_request(int sock, const char *request);
 void interactive_mode(int sock, const char *username);
@@ -106,42 +106,52 @@ void send_request(int sock, const char *request) {
 void interactive_mode(int sock, const char *username) {
     char input[BUF_SIZE];
     char buffer[BUF_SIZE];
-    char prompt[PROMPT_SIZE];  
+    char prompt[PROMPT_SIZE];  // Ukuran buffer untuk prompt
     char current_channel[BUF_SIZE] = "";
     char current_room[BUF_SIZE] = "";
-
-    snprintf(prompt, sizeof(prompt), "[%s] ", username);
 
     while (1) {
         printf("%s", prompt);
         if (fgets(input, BUF_SIZE, stdin) == NULL) {
             break;
         }
-        input[strcspn(input, "\n")] = 0;  
+        input[strcspn(input, "\n")] = 0;  // Menghapus karakter newline
         send(sock, input, strlen(input), 0);
         int valread = read(sock, buffer, BUF_SIZE);
         buffer[valread] = '\0';
         printf("%s\n", buffer);
 
-        // Update prompt based on response
-        if (strstr(buffer, "JOIN") != NULL) {
-            if (strstr(input, "JOIN ") != NULL) {
-                char *join_type = strstr(input, "JOIN ") + 5; 
-                if (strstr(join_type, "/") != NULL) {
-                    sscanf(join_type, "%*[^/]/%s", current_room);
-                } else {
-                    strcpy(current_channel, join_type);
-                    current_room[0] = '\0'; 
-                }
+        // Memperbarui prompt berdasarkan respons
+        if (strncmp(input, "JOIN ", 5) == 0) {
+            char join_type[BUF_SIZE];
+            sscanf(input, "JOIN %s", join_type);
+
+            if (strcmp(current_channel, "") == 0 && strcmp(current_room, "") == 0) {
+                // User wants to join a channel
+                strcpy(current_channel, join_type);  // Set channel name from user input
+            } else if (strcmp(current_room, "") == 0) {
+                // User wants to join a room within the current channel
+                strcpy(current_room, join_type);  // Set room name from user input
             }
         }
 
+        // Pembaruan prompt
         if (current_room[0] != '\0') {
             snprintf(prompt, sizeof(prompt), "[%s/%s/%s] ", username, current_channel, current_room);
         } else if (current_channel[0] != '\0') {
             snprintf(prompt, sizeof(prompt), "[%s/%s] ", username, current_channel);
         } else {
             snprintf(prompt, sizeof(prompt), "[%s] ", username);
+        }
+
+        if (strcmp(input, "EXIT") == 0) {
+            if (strcmp(current_channel, "") == 0 && strcmp(current_room, "") == 0) {
+                break; // Keluar dari loop dan tutup koneksi jika tidak dalam channel atau room
+            } else if (strcmp(current_room, "") == 0) {
+                strcpy(current_channel, ""); // Keluar dari channel
+            } else {
+                strcpy(current_room, ""); // Keluar dari room
+            }
         }
     }
 }
