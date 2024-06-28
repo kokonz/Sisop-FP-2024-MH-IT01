@@ -23,7 +23,7 @@
 #define MAX_USERNAME_LENGTH 50
 char logged_in_user[MAX_USERNAME_LENGTH];
 ```
-Bagian di atas berfungsi untuk mendefinisikan beberapa header yang diperlukan dalam program, menetapkan port yang digunakan server untuk menerima koneksi, ukuran buffer untuk pengoperasian file, mendefinisikan path ke file users.csv dan channels.csv, menetapkan panjang maksimum username user, dan mendeklarasikan variabel global logged_in_user yang akan digunakan dalam bebberapa fungsi dalam program.
+Bagian di atas berfungsi untuk mendefinisikan beberapa header yang diperlukan dalam program, menetapkan port yang digunakan server untuk menerima koneksi, ukuran buffer untuk pengoperasian file, mendefinisikan path ke file users.csv dan channels.csv, menetapkan panjang maksimum username user, dan mendeklarasikan variabel global logged_in_user yang akan digunakan dalam beberapa fungsi dalam program.
 ```bash
 void *handle_client(void *arg);
 void register_user(int client_socket, const char *username, const char *password);
