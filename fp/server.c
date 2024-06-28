@@ -16,7 +16,6 @@
 #define USER_FILE "/home/kokon/FP/DiscorIT/users.csv"
 #define CHANNEL_FILE "/home/kokon/FP/DiscorIT/channels.csv"
 #define MAX_USERNAME_LENGTH 50
-#define PROMPT_SIZE 4096
 char logged_in_user[MAX_USERNAME_LENGTH];
 
 void *handle_client(void *arg);
