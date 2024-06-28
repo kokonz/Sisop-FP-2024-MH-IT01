@@ -1,5 +1,342 @@
 # Sisop-FP-2024-MH-IT01
 
+## discorit.c
+### Penjelasan Kode
+    #include <stdio.h>
+    #include <stdlib.h>
+    #include <string.h>
+    #include <unistd.h>
+    #include <arpa/inet.h>
+    
+    #define PORT 8080
+    #define BUF_SIZE 1024
+    #define PROMPT_SIZE 4096
+#### Bagian ini merupakan pustaka yang diperlukan, seperti stdio.h untuk input dan output, stdlib.h untuk fungsi umum, string.h untuk manipulasi string, unistd.h untuk fungsionalitas POSIX, dan arpa/inet.h untuk fungsionalitas jaringan. Kemudian, mendefinisikan beberapa konstanta: PORT diatur ke 8080 untuk menentukan port server, BUF_SIZE diatur ke 1024 untuk ukuran buffer data, dan PROMPT_SIZE diatur ke 4096 untuk ukuran buffer prompt interaktif.
+
+    void send_request(int sock, const char *request);
+    void interactive_mode(int sock, const char *username);
+#### Dalam bagian ini, dua fungsi di declare yaitu send_request untuk mengirim permintaan ke server dan interactive_mode untuk menangani interaksi setelah pengguna berhasil login. Deklarasi ini memungkinkan fungsi-fungsi ini digunakan di seluruh program.
+
+    int main(int argc, char *argv[]) {
+        if (argc < 3) {
+            fprintf(stderr, "Usage: %s <REGISTER|LOGIN|CREATE CHANNEL|EDIT CHANNEL|DEL CHANNEL|CREATE ROOM|EDIT ROOM|DEL ROOM|BAN|UNBAN|LIST CHANNEL|LIST ROOM|LIST USER|JOIN> <args>\n", argv[0]);
+            exit(EXIT_FAILURE);
+        }
+    
+        char request[BUF_SIZE] = {0};
+    
+        if (strcmp(argv[1], "REGISTER") == 0 && argc == 5 && strcmp(argv[3], "-p") == 0) {
+            snprintf(request, sizeof(request), "REGISTER %s -p %s", argv[2], argv[4]);
+        } else if (strcmp(argv[1], "LOGIN") == 0 && argc == 5 && strcmp(argv[3], "-p") == 0) {
+            snprintf(request, sizeof(request), "LOGIN %s -p %s", argv[2], argv[4]);
+        } else if (strcmp(argv[1], "CREATE CHANNEL") == 0 && argc == 5 && strcmp(argv[3], "-k") == 0) {
+            snprintf(request, sizeof(request), "CREATE CHANNEL %s -k %s", argv[2], argv[4]);
+        } else if (strcmp(argv[1], "EDIT CHANNEL") == 0 && argc == 5) {
+            snprintf(request, sizeof(request), "EDIT CHANNEL %s TO %s", argv[2], argv[4]);
+        } else if (strcmp(argv[1], "DEL CHANNEL") == 0 && argc == 3) {
+            snprintf(request, sizeof(request), "DEL CHANNEL %s", argv[2]);
+        } else if (strcmp(argv[1], "CREATE ROOM") == 0 && argc == 4) {
+            snprintf(request, sizeof(request), "CREATE ROOM %s/%s", argv[2], argv[3]);
+        } else if (strcmp(argv[1], "EDIT ROOM") == 0 && argc == 5) {
+            snprintf(request, sizeof(request), "EDIT ROOM %s/%s TO %s", argv[2], argv[3], argv[4]);
+        } else if (strcmp(argv[1], "DEL ROOM") == 0 && argc == 4) {
+            snprintf(request, sizeof(request), "DEL ROOM %s/%s", argv[2], argv[3]);
+        } else if (strcmp(argv[1], "DEL ROOM ALL") == 0 && argc == 3) {
+            snprintf(request, sizeof(request), "DEL ROOM ALL %s", argv[2]);
+        } else if (strcmp(argv[1], "BAN") == 0 && argc == 4) {
+            snprintf(request, sizeof(request), "BAN %s/%s", argv[2], argv[3]);
+        } else if (strcmp(argv[1], "UNBAN") == 0 && argc == 4) {
+            snprintf(request, sizeof(request), "UNBAN %s/%s", argv[2], argv[3]);
+        } else if (strcmp(argv[1], "LIST CHANNEL") == 0) {
+            snprintf(request, sizeof(request), "LIST CHANNEL");
+        } else if (strcmp(argv[1], "LIST ROOM") == 0 && argc == 3) {
+            snprintf(request, sizeof(request), "LIST ROOM %s", argv[2]);
+        } else if (strcmp(argv[1], "LIST USER") == 0 && argc == 2) {
+        snprintf(request, sizeof(request), "LIST USER");
+        } else if (strcmp(argv[1], "JOIN") == 0 && argc == 5 && strcmp(argv[3], "-k") == 0) {
+            snprintf(request, sizeof(request), "JOIN %s -k %s", argv[2], argv[4]);
+        } else if (strcmp(argv[1], "JOIN ROOM") == 0 && argc == 4) {
+            snprintf(request, sizeof(request), "JOIN %s/%s", argv[2], argv[3]);
+        } else if (strcmp(argv[1], "EDIT WHERE") == 0 && argc == 5 && strcmp(argv[3], "-u") == 0) {
+            snprintf(request, sizeof(request), "EDIT WHERE %s -u %s", argv[2], argv[4]);
+        } else if (strcmp(argv[1], "EDIT WHERE") == 0 && argc == 5 && strcmp(argv[3], "-p") == 0) {
+            snprintf(request, sizeof(request), "EDIT WHERE %s -p %s", argv[2], argv[4]);
+        } else if (strcmp(argv[1], "REMOVE") == 0 && argc == 3) {
+            snprintf(request, sizeof(request), "REMOVE %s", argv[2]);
+        } else if (strcmp(argv[1], "REMOVE") == 0 && strcmp(argv[2], "USER") == 0 && argc == 4) {
+        snprintf(request, sizeof(request), "REMOVE USER %s", argv[3]);
+        } else {
+            fprintf(stderr, "Invalid command format\n");
+            exit(EXIT_FAILURE);
+        }
+    
+        int sock = 0;
+        struct sockaddr_in serv_addr;
+    
+        if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+            printf("\n Socket creation error \n");
+            return -1;
+        }
+    
+        serv_addr.sin_family = AF_INET;
+        serv_addr.sin_port = htons(PORT);
+    
+        if (inet_pton(AF_INET, "127.0.0.1", &serv_addr.sin_addr) <= 0) {
+            printf("\nInvalid address/ Address not supported \n");
+            return -1;
+        }
+    
+        if (connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) {
+            printf("\nConnection Failed \n");
+            return -1;
+        }
+    
+        send_request(sock, request);
+    
+        if (strstr(request, "LOGIN") != NULL) {
+            interactive_mode(sock, argv[2]);
+        }
+    
+        close(sock);
+    
+        return 0;
+    }
+#### Fungsi main dimulai dengan memeriksa apakah jumlah argumen yang diberikan sudah cukup. Jika tidak, program akan mencetak pesan penggunaan yang benar dan keluar. Selanjutnya, buffer request diinisialisasi dengan nol. Berdasarkan argumen yang diberikan, program membentuk permintaan yang sesuai menggunakan snprintf untuk berbagai perintah seperti "REGISTER", "LOGIN", dan lainnya. Jika format perintah tidak valid, program akan mencetak pesan kesalahan dan keluar. Kode kemudian membuat soket, mengatur alamat server, dan mencoba untuk terhubung ke server. Jika ada kesalahan pada salah satu langkah ini, pesan kesalahan akan dicetak dan program akan berhenti. Setelah terhubung, fungsi send_request digunakan untuk mengirim permintaan ke server. Jika permintaan adalah "LOGIN", program akan masuk ke mode interaktif menggunakan fungsi interactive_mode. Terakhir, soket akan ditutup.
+
+    void send_request(int sock, const char *request) {
+        char buffer[BUF_SIZE] = {0};
+        send(sock, request, strlen(request), 0);
+        read(sock, buffer, BUF_SIZE);
+        printf("%s", buffer);
+    }
+#### Fungsi send_request mengirim permintaan ke server dan menunggu respons. Buffer buffer digunakan untuk menyimpan data yang diterima dari server, dan kemudian data ini dicetak ke layar. Fungsi ini memastikan bahwa permintaan dikirim dan respons dari server ditampilkan.
+
+    void interactive_mode(int sock, const char *username) {
+        char input[BUF_SIZE];
+        char buffer[BUF_SIZE];
+        char prompt[PROMPT_SIZE];  
+        char current_channel[BUF_SIZE] = "";
+        char current_room[BUF_SIZE] = "";
+    
+        while (1) {
+            printf("%s", prompt);
+            if (fgets(input, BUF_SIZE, stdin) == NULL) {
+                break;
+            }
+            input[strcspn(input, "\n")] = 0;  
+            send(sock, input, strlen(input), 0);
+            int valread = read(sock, buffer, BUF_SIZE);
+            buffer[valread] = '\0';
+            printf("%s\n", buffer);
+    
+            if (strncmp(input, "JOIN ", 5) == 0) {
+                char join_type[BUF_SIZE];
+                sscanf(input, "JOIN %s", join_type);
+    
+                if (strcmp(current_channel, "") == 0 && strcmp(current_room, "") == 0) {
+                    strcpy(current_channel, join_type);  
+                } else if (strcmp(current_room, "") == 0) {
+                    strcpy(current_room, join_type);  
+                }
+            }
+    
+            if (current_room[0] != '\0') {
+                snprintf(prompt, sizeof(prompt), "[%s/%s/%s] ", username, current_channel, current_room);
+            } else if (current_channel[0] != '\0') {
+                snprintf(prompt, sizeof(prompt), "[%s/%s] ", username, current_channel);
+            } else {
+                snprintf(prompt, sizeof(prompt), "[%s] ", username);
+            }
+    
+            if (strcmp(input, "EXIT") == 0) {
+                if (strcmp(current_channel, "") == 0 && strcmp(current_room, "") == 0) {
+                    break; 
+                } else if (strcmp(current_room, "") == 0) {
+                    strcpy(current_channel, ""); 
+                } else {
+                    strcpy(current_room, ""); 
+                }
+            }
+        }
+    }
+#### Fungsi interactive_mode mengelola mode interaktif setelah pengguna login. Pengguna dapat memasukkan perintah yang dikirim ke server, dan respons dari server ditampilkan. Prompt diperbarui berdasarkan channel dan room yang sedang aktif. Jika pengguna memasukkan "EXIT", maka pengguna akan keluar dari channel/room atau keluar dari mode interaktif jika tidak ada channel/room yang aktif. Buffer input digunakan untuk menyimpan input dari pengguna, sementara buffer buffer digunakan untuk menyimpan respons dari server. 
+
+## monitor.c
+### Penjelasan Kode
+    #include <stdio.h>
+    #include <stdlib.h>
+    #include <string.h>
+    #include <unistd.h>
+    #include <arpa/inet.h>
+    #include <pthread.h>
+    #include <time.h>
+    #include <stdbool.h>
+    
+    #define BUFFER_SIZE 1024
+    #define PORT 8080
+#### Bagian ini merupakan pustaka yang diperlukan untuk berbagai fungsi seperti input/output (stdio.h), manajemen memori (stdlib.h), manipulasi string (string.h), operasi sistem (unistd.h), jaringan (arpa/inet.h), threading (pthread.h), dan fungsi waktu (time.h). Konstanta BUFFER_SIZE diatur ke 1024 untuk ukuran buffer data, dan PORT diatur ke 8080 untuk port server.
+
+    int sockfd;
+    char username[50];
+    char channel[50] = "";
+    char room[50] = "";
+    bool in_room = false;
+    bool running = true;
+#### Ini adalah variabel global yang dideklarasikan untuk menyimpan deskriptor soket (sockfd), nama pengguna (username), nama channel (channel), nama room (room), status apakah berada di dalam room (in_room), dan status apakah program sedang berjalan (running).
+
+void get_timestamp(char *buffer, size_t buffer_size) {
+    time_t now = time(NULL);
+    struct tm *t = localtime(&now);
+    strftime(buffer, buffer_size, "[%d/%m/%Y %H:%M:%S]", t);
+}
+#### Fungsi get_timestamp digunakan untuk mendapatkan timestamp saat ini dalam format [dd/mm/yyyy hh:mm:ss]. Ini menggunakan fungsi time untuk mendapatkan waktu saat ini, localtime untuk mengonversinya ke waktu lokal, dan strftime untuk memformatnya.
+
+    void* receive_messages(void* arg) {
+        char buffer[BUFFER_SIZE];
+    
+        while (running) {
+            int bytes_received = recv(sockfd, buffer, BUFFER_SIZE, 0);
+            if (bytes_received <= 0) {
+                printf("Koneksi terputus.\n");
+                close(sockfd);
+                exit(EXIT_FAILURE);
+            }
+            buffer[bytes_received] = '\0';
+    
+            if (strncmp(buffer, "Invalid command", 15) != 0) {
+                printf("%s\n", buffer);
+            }
+        }
+        return NULL;
+    }
+#### Fungsi receive_messages dijalankan sebagai thread untuk menerima pesan dari server secara terus-menerus selama program berjalan (running). Jika koneksi terputus, program akan menutup soket dan keluar. Pesan yang diterima hanya dicetak jika bukan perintah "Invalid command".
+
+    int handle_account() {
+        char login_info[BUFFER_SIZE];
+        snprintf(login_info, sizeof(login_info), "LOGIN %s -p %s\n", username, channel);
+        send(sockfd, login_info, strlen(login_info), 0);
+    
+        char response[BUFFER_SIZE];
+        int bytes_received = recv(sockfd, response, BUFFER_SIZE, 0);
+        if (bytes_received <= 0) {
+            printf("Gagal menerima respon dari server.\n");
+            return 0;
+        }
+        response[bytes_received] = '\0';
+        printf("%s\n", response);
+    
+        if (strstr(response, "berhasil login")) {
+            return 1;
+        } else {
+            return 0;
+        }
+    }
+#### Fungsi handle_account menangani proses login dengan mengirimkan informasi login ke server dan menunggu respons. Jika login berhasil, fungsi mengembalikan 1, sebaliknya 0.
+
+    int connect_server() {
+        struct sockaddr_in server_addr;
+        sockfd = socket(AF_INET, SOCK_STREAM, 0);
+        if (sockfd == -1) {
+            perror("Socket creation failed");
+            return 0;
+        }
+    
+        server_addr.sin_family = AF_INET;
+        server_addr.sin_port = htons(PORT);
+        server_addr.sin_addr.s_addr = inet_addr("127.0.0.1");
+    
+        if (connect(sockfd, (struct sockaddr*)&server_addr, sizeof(server_addr)) == -1) {
+            perror("Connection to server failed");
+            close(sockfd);
+            return 0;
+        }
+    
+        return 1;
+    }
+#### Fungsi connect_server membuat koneksi ke server. Jika pembuatan soket atau koneksi ke server gagal, fungsi akan mencetak pesan kesalahan dan mengembalikan 0. Jika berhasil, fungsi mengembalikan 1.
+
+    void clear_terminal() {
+        printf("\033[H\033[J");
+    }
+#### Fungsi clear_terminal membersihkan terminal dengan mencetak karakter pelarian ANSI yang membersihkan layar.
+
+    void display_chat_history(const char *filepath) {
+        FILE *file = fopen(filepath, "r");
+        if (!file) {
+            perror("Gagal membuka file chat");
+            return;
+        }
+    
+        char line[BUFFER_SIZE];
+        while (fgets(line, sizeof(line), file)) {
+            printf("%s", line);
+        }
+    
+        fclose(file);
+    }
+#### Fungsi display_chat_history menampilkan riwayat obrolan dari file yang ditentukan oleh filepath. Jika file tidak dapat dibuka, fungsi mencetak pesan kesalahan. Setiap baris dari file dibaca dan dicetak ke layar.
+
+    void* input_handler(void* arg) {
+        char input[BUFFER_SIZE];
+    
+        while (running) {
+            fgets(input, BUFFER_SIZE, stdin);
+            input[strcspn(input, "\n")] = 0;
+    
+            if (strncmp(input, "EXIT", 4) == 0) {
+                in_room = false;
+                room[0] = '\0';
+                channel[0] = '\0';
+                printf("[%s] EXIT\n", username);
+                send(sockfd, "EXIT\n", 5, 0);
+                running = false;
+            } else if (strncmp(input, "-channel ", 9) == 0) {
+                sscanf(input, "-channel %s -room %s", channel, room);
+                in_room = true;
+    
+                char filepath[BUFFER_SIZE];
+                snprintf(filepath, sizeof(filepath), "/home/kokon/FP/DiscorIT/%s/%s/chat.csv", channel, room);
+                display_chat_history(filepath);
+                printf("[%s/%s/%s] ", username, channel, room);
+                fflush(stdout);
+            } else {
+                send(sockfd, input, strlen(input), 0);
+            }
+        }
+        return NULL;
+    }
+#### Fungsi input_handler dijalankan sebagai thread untuk menangani input pengguna. Jika pengguna memasukkan "EXIT", fungsi akan mengatur ulang variabel terkait dan mengirimkan perintah "EXIT" ke server, kemudian menghentikan program. Jika pengguna memasukkan perintah untuk bergabung ke channel dan room, fungsi akan memperbarui variabel channel dan room, menampilkan riwayat obrolan, dan memperbarui prompt. Input lain akan dikirim langsung ke server.
+
+    int main(int argc, char *argv[]) {
+        if (argc != 5 || strcmp(argv[1], "LOGIN") != 0 || strcmp(argv[3], "-p") != 0) {
+            fprintf(stderr, "Usage: %s LOGIN <username> -p <password>\n", argv[0]);
+            exit(EXIT_FAILURE);
+        }
+    
+        strcpy(username, argv[2]);
+        strcpy(channel, argv[4]);
+    
+        if (!connect_server()) {
+            fprintf(stderr, "Gagal terhubung ke server.\n");
+            exit(EXIT_FAILURE);
+        }
+    
+        if (!handle_account()) {
+            fprintf(stderr, "Login gagal.\n");
+            exit(EXIT_FAILURE);
+        }
+    
+        pthread_t recv_thread, input_thread;
+        pthread_create(&recv_thread, NULL, receive_messages, NULL);
+        pthread_create(&input_thread, NULL, input_handler, NULL);
+    
+        pthread_join(input_thread, NULL);
+        pthread_cancel(recv_thread);
+    
+        return 0;
+    }
+#### Fungsi main memulai dengan memeriksa argumen yang diberikan. Jika argumen tidak valid, program mencetak pesan penggunaan dan keluar. Selanjutnya, nama pengguna dan channel disimpan dalam variabel global. Fungsi connect_server dipanggil untuk menghubungkan ke server, dan handle_account untuk menangani proses login. Jika koneksi atau login gagal, program mencetak pesan kesalahan dan keluar. Dua thread kemudian dibuat: satu untuk menerima pesan (recv_thread) dan satu untuk menangani input pengguna (input_thread). Fungsi pthread_join digunakan untuk menunggu input_thread selesai, dan pthread_cancel untuk menghentikan recv_thread setelahnya. Program kemudian berakhir.
+
 ## server.c
 ### Penjelasan kode
 ```bash
