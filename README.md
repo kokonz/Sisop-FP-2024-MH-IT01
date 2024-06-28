@@ -2233,3 +2233,10 @@ Fungsi remove_directory bertugas untuk menghapus direktori dan semua isinya seca
 * Jika entri adalah direktori, fungsi dipanggil kembali secara rekursif untuk menghapus subdirektori tersebut. Jika entri adalah file, file dihapus menggunakan unlink.
 * Menutup direktori yang dibuka sebelumnya, lalu menghapus direktori yang telah kosong.
 * Mengembalikan 0 untuk menandakan bahwa direktori dan semua isinya telah dihapus.
+
+## Dokumentasi
+![image](https://github.com/kokonz/Sisop-FP-2024-MH-IT01/assets/151918510/59c56260-ae35-4680-9fb8-90ef020cc63d)
+![image](https://github.com/kokonz/Sisop-FP-2024-MH-IT01/assets/151918510/a4ceaf28-12dc-44f8-ae49-59d81841ed6b)
+![image](https://github.com/kokonz/Sisop-FP-2024-MH-IT01/assets/151918510/af3e5a57-c7c8-4fb5-9292-b23faec994cb)
+![image](https://github.com/kokonz/Sisop-FP-2024-MH-IT01/assets/151918510/1238fcde-b601-4391-88b0-bd8c570dbceb)
+![image](https://github.com/kokonz/Sisop-FP-2024-MH-IT01/assets/151918510/384c36b7-11be-49fc-b603-50b162a110cb)
